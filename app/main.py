@@ -12,17 +12,32 @@ from api.utils import register_limiter_handler
 from api.v1 import router
 from core import settings
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from infrastructure.clients import redis
+from infrastructure.database.engine import dispose
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
     yield
+    await redis.aclose()
+    await dispose()
 
 
 app = FastAPI(lifespan=lifespan)
 register_exception_handlers(app)
 register_limiter_handler(app)
+
+if settings.cors.origins_list:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors.origins_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 app.include_router(router)
 
 

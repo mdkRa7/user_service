@@ -16,8 +16,15 @@ def register_limiter_handler(app: FastAPI) -> None:
 
 
 def delete_cookies(response: Response) -> None:
-    response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token")
+    for key in ("access_token", "refresh_token"):
+        response.delete_cookie(
+            key=key,
+            path="/",
+            domain=settings.cookie.domain,
+            secure=settings.cookie.secure,
+            httponly=True,
+            samesite=settings.cookie.samesite,
+        )
 
 
 def set_cookies(response: Response, user_id: uuid.UUID, role: Role) -> None:
@@ -25,9 +32,10 @@ def set_cookies(response: Response, user_id: uuid.UUID, role: Role) -> None:
         key="access_token",
         value=jwt_creator.create_access_token(user_id, role),
         httponly=True,
-        # do not forget to change secure mode in prod
-        secure=False,  # secure=True
-        samesite="lax",
+        secure=settings.cookie.secure,
+        samesite=settings.cookie.samesite,
+        domain=settings.cookie.domain,
+        path="/",
         max_age=settings.jwt.access_exp * 60,
     )
 
@@ -35,8 +43,9 @@ def set_cookies(response: Response, user_id: uuid.UUID, role: Role) -> None:
         key="refresh_token",
         value=jwt_creator.create_refresh_token(user_id, role),
         httponly=True,
-        # do not forget to change secure mode in prod
-        secure=False,  # secure=True
-        samesite="lax",
+        secure=settings.cookie.secure,
+        samesite=settings.cookie.samesite,
+        domain=settings.cookie.domain,
+        path="/",
         max_age=settings.jwt.refresh_exp * 24 * 60 * 60,
     )

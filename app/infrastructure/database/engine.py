@@ -1,8 +1,7 @@
 import logging
 
+from core import settings
 from sqlalchemy.ext.asyncio import create_async_engine
-
-from app.core import settings
 
 log = logging.getLogger(__name__)
 
@@ -10,6 +9,7 @@ log = logging.getLogger(__name__)
 async_engine = create_async_engine(
     url=str(settings.db.url),
     echo=settings.db.echo,
+    pool_pre_ping=True,
 )
 
 

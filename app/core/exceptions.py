@@ -36,3 +36,18 @@ class UserBlockedError(Exception):
 class InvalidCodeError(Exception):
     def __init__(self, message: str = "Invalid or expired confirmation code"):
         super().__init__(message)
+
+
+class TooManyRequestsError(Exception):
+    def __init__(self, message: str = "Too many requests. Try again later."):
+        super().__init__(message)
+
+
+class EmailQuotaExceededError(Exception):
+    def __init__(self, message: str = "Email sending limit reached for today."):
+        super().__init__(message)
+
+
+class CaptchaError(Exception):
+    def __init__(self, message: str = "Captcha verification failed."):
+        super().__init__(message)

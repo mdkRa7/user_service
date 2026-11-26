@@ -1,10 +1,10 @@
-import time
 import uuid
 from typing import Annotated
 
 from api.dependencies import dep_get_auth_service, get_refresh_token
 from api.utils import delete_cookies, set_cookies
 from core import limiter, settings
+from core.captcha import verify_turnstile
 from domain.services import AuthService
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from schemas import LoginSchema, UserSchemaAdd, UserSchemaRead, VerifyEmailSchema
@@ -16,15 +16,38 @@ router = APIRouter(
 
 
 @router.post("/register")
+@limiter.limit(settings.limiter.register_limit)
 async def register_user(
+    request: Request,
     background_tasks: BackgroundTasks,
     user_data: UserSchemaAdd,
     service: Annotated[AuthService, Depends(dep_get_auth_service)],
 ):
-    t0 = time.monotonic()
-    await service.register_user(user_data, background_tasks)
-    print(f"[ROUTER before return]: {time.monotonic() - t0:.2f}s")
-    return {"message": "Confirmation code sent to email"}
+    await verify_turnstile(
+        user_data.turnstile_token,
+        request.client.host if request.client else None,
+    )
+    # Verification OFF (no SMTP server): create the account right away.
+    # The code flow below and the /verify-email endpoint stay in place and are
+    # used as soon as CONFIG__AUTH__EMAIL_VERIFICATION=true.
+    if not settings.auth.email_verification:
+        await service.register_user_without_verification(user_data)
+        return {
+            "message": "Registered. Email verification is disabled, you can log in now",
+            "verification_required": False,
+        }
+    # Verification ON: send a code by email, the account is created in /verify-email.
+    demo_code = await service.register_user(user_data, background_tasks)
+    if demo_code:
+        return {
+            "message": "Demo mode: email sending is skipped, use the code below",
+            "demo_code": demo_code,
+            "verification_required": True,
+        }
+    return {
+        "message": "Confirmation code sent to email",
+        "verification_required": True,
+    }
 
 
 @router.post("/login")
@@ -40,8 +63,12 @@ async def login_user(
     return {"detail": "Logged in successfully"}
 
 
+# Second step of registration, used only when CONFIG__AUTH__EMAIL_VERIFICATION=true.
+# With verification disabled nobody calls it (there is no pending code).
 @router.post("/verify-email", response_model=UserSchemaRead)
+@limiter.limit(settings.limiter.verify_limit)
 async def verify_email(
+    request: Request,
     verify_data: VerifyEmailSchema,
     service: Annotated[AuthService, Depends(dep_get_auth_service)],
 ):

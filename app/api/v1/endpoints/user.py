@@ -12,7 +12,7 @@ router = APIRouter(
 )
 
 
-@router.get("/user/me", response_model=UserSchemaRead)
+@router.get("/me", response_model=UserSchemaRead)
 async def get_user(
     access_token: Annotated[str, Depends(get_access_token)],
     service: Annotated[AuthService, Depends(dep_get_auth_service)],

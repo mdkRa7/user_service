@@ -1,12 +1,15 @@
 import logging
 
 from core.exceptions import (
+    CaptchaError,
     DatabaseError,
+    EmailQuotaExceededError,
     IntegrityConstraintError,
     InvalidCodeError,
     InvalidCredentialsError,
     InvalidTokenTypeError,
     TokenValidationError,
+    TooManyRequestsError,
     UserBlockedError,
 )
 from fastapi import FastAPI, Request, status
@@ -76,4 +79,34 @@ def register_exception_handlers(app: FastAPI):
     ):
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(exc)}
+        )
+
+    @app.exception_handler(TooManyRequestsError)
+    async def too_many_requests_error(
+        request: Request,
+        exc: TooManyRequestsError,
+    ):
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(EmailQuotaExceededError)
+    async def email_quota_error(
+        request: Request,
+        exc: EmailQuotaExceededError,
+    ):
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(CaptchaError)
+    async def captcha_error(
+        request: Request,
+        exc: CaptchaError,
+    ):
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": str(exc)},
         )

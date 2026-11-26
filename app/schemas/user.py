@@ -9,18 +9,28 @@ from pydantic import BaseModel, EmailStr, SecretStr, field_validator, model_vali
 class UserschemaBase(BaseModel):
     email: EmailStr
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        # Email domains are case-insensitive; lowercasing the whole address
+        # also prevents duplicate accounts like Test@example.com/test@example.com.
+        return str(value).strip().lower()
+
 
 # This is an input sсhema to check some fields
 class UserSchemaAdd(UserschemaBase):
     password: SecretStr
     password_confirm: SecretStr
+    turnstile_token: str | None = None
 
     @field_validator("password")
     @classmethod
     def validate_password(cls, value: SecretStr) -> SecretStr:
-        password = value.get_secret_value().strip()
+        password = value.get_secret_value()
         if len(password) < 10:
             raise ValueError("The password must contain at least 10 symbols")
+        if len(password) > 128:
+            raise ValueError("The password must contain at most 128 symbols")
         if not any(c.isupper() for c in password):
             raise ValueError("The password must contain at least one uppercase letter")
         if not any((c.islower() for c in password)):

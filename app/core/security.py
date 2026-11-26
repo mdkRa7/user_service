@@ -4,7 +4,7 @@ from typing import Any
 
 import jwt
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import VerificationError
 from core import settings
 from domain.enums import Role
 from jwt.exceptions import InvalidTokenError
@@ -22,7 +22,7 @@ def hash_password(password: SecretStr) -> str:
 def verify_password(hashed_password: str, password: str) -> bool:
     try:
         return ph.verify(hashed_password, password)
-    except VerifyMismatchError:
+    except VerificationError:
         return False
 
 
@@ -75,6 +75,7 @@ class JWTChecker:
                 jwt=token,
                 key=settings.jwt.public_key,
                 algorithms=[settings.jwt.algorithm],
+                options={"require": ["exp", "sub", "token_type"]},
             )
         except InvalidTokenError:
             raise TokenValidationError()
